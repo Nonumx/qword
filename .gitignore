@@ -30,3 +30,12 @@
 *.exe
 *.out
 *.app
+
+# VSCode Auto Generated Directory
+build/
+bin/
+lib/
+.cache/
+
+# Word Template
+*.docx
