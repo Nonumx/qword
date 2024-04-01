@@ -1,6 +1,7 @@
 #pragma once
 
-#include <QAxObject>
+#include <QtCore>
+#include <memory>
 
 #if defined(QWORD_LIB)
 #define QWORD_EXPORT __declspec(dllexport)
@@ -43,25 +44,22 @@ struct QWordTable
     int GetColumnCount() const { return m_horizontalHeaders.size(); }
 };
 
-class QWORD_EXPORT QWord : public QAxObject
-{
-    Q_OBJECT
+struct QWordImpl;
 
+class QWORD_EXPORT QWord
+{
   public:
-    explicit QWord(QObject *parent = nullptr);
-    explicit QWord(const QString &path, QObject *parent = nullptr);
+    QWord();
+    explicit QWord(const QString &path);
 
     bool Open(const QString &path);
     void Save(QString save_as = QString());
-
-    QAxObject *SelectCurrentBookmark();
 
     QWord &operator[](const QString &bookmark);
     QWord &operator=(const QString &content);
     QWord &operator=(const QWordTable &table);
 
   private:
+    std::shared_ptr<QWordImpl> m_impl;
     QString m_path;
-    QAxObject *m_activeDoc;
-    QAxObject *m_currentBookmark;
 };

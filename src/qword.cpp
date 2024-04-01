@@ -1,21 +1,20 @@
 #include "qword.h"
+#include "qword_impl.h"
+#include <QAxObject>
 #include <QDebug>
 #include <QFileInfo>
-
-const QString kWordApplication = "Word.Application";
 
 // 从第一列开始 非0
 constexpr int kTableColBegin = 1;
 // 表格从第二行开始 第一行是表头
 constexpr int kTableRowBegin = 2;
 
-QWord::QWord(QObject *parent)
-    : QAxObject(kWordApplication, parent), m_activeDoc(nullptr),
-      m_currentBookmark(nullptr)
+QWord::QWord()
+    : m_impl(std::make_shared<QWordImpl>())
 {
 }
 
-QWord::QWord(const QString &path, QObject *parent) : QWord(parent)
+QWord::QWord(const QString &path) : QWord()
 {
     Open(path);
 }
@@ -29,16 +28,16 @@ bool QWord::Open(const QString &path)
 
     m_path = path;
 
-    auto *documents = querySubObject("Documents");
+    auto *documents = m_impl->querySubObject("Documents");
     if (!documents)
     {
         return false;
     }
 
     documents->dynamicCall("Add(QString)", path);
-    m_activeDoc = querySubObject("ActiveDocument");
+    m_impl->m_activeDoc = m_impl->querySubObject("ActiveDocument");
 
-    return m_activeDoc != nullptr;
+    return m_impl->m_activeDoc != nullptr;
 }
 
 void QWord::Save(QString save_as)
@@ -47,34 +46,15 @@ void QWord::Save(QString save_as)
     {
         save_as = m_path;
     }
-    m_activeDoc->dynamicCall("SaveAs(QString)", save_as);
-    m_activeDoc->dynamicCall("Close(boolean)", true);
-    dynamicCall("Quit(void)");
-}
-
-QAxObject *QWord::SelectCurrentBookmark()
-{
-    if (!m_currentBookmark)
-    {
-        return nullptr;
-    }
-
-    m_currentBookmark->dynamicCall("Select(void)");
-
-    auto *selection = querySubObject("Selection");
-
-    if (!selection)
-    {
-        return nullptr;
-    }
-
-    return selection;
+    m_impl->m_activeDoc->dynamicCall("SaveAs(QString)", save_as);
+    m_impl->m_activeDoc->dynamicCall("Close(boolean)", true);
+    m_impl->dynamicCall("Quit(void)");
 }
 
 QWord &QWord::operator[](const QString &bookmark)
 {
-    m_currentBookmark = m_activeDoc->querySubObject("Bookmarks(QString)", bookmark);
-    if (!m_currentBookmark)
+    m_impl->m_currentBookmark = m_impl->m_activeDoc->querySubObject("Bookmarks(QString)", bookmark);
+    if (!m_impl->m_currentBookmark)
     {
         qWarning() << "Bookmark" << bookmark << "does not exists";
     }
@@ -83,7 +63,7 @@ QWord &QWord::operator[](const QString &bookmark)
 
 QWord &QWord::operator=(const QString &content)
 {
-    auto *selection = SelectCurrentBookmark();
+    auto *selection = m_impl->SelectCurrentBookmark();
 
     if (!selection)
     {
@@ -97,7 +77,7 @@ QWord &QWord::operator=(const QString &content)
 
 QWord &QWord::operator=(const QWordTable &table)
 {
-    auto *selection = SelectCurrentBookmark();
+    auto *selection = m_impl->SelectCurrentBookmark();
 
     if (!selection)
     {
@@ -110,7 +90,7 @@ QWord &QWord::operator=(const QWordTable &table)
     auto row = table.GetRowCount();
     auto column = table.GetColumnCount();
     QAxObject *range = selection->querySubObject("Range");
-    QAxObject *tables = m_activeDoc->querySubObject("Tables");
+    QAxObject *tables = m_impl->m_activeDoc->querySubObject("Tables");
     // 新建表格对象 row行数据+1（表头）
     QAxObject *table_obj = tables->querySubObject("Add(QVariant,int,int)", range->asVariant(), row + 1, column);
 

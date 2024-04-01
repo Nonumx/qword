@@ -36,6 +36,7 @@ build/
 bin/
 lib/
 .cache/
+.vscode/
 
 # Word Template
 *.docx
